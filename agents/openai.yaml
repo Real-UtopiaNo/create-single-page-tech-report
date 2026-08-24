@@ -1,0 +1,4 @@
+interface:
+  display_name: "单页技术洞察汇报"
+  short_description: "将技术资料转化为一页式、证据驱动的中文洞察汇报PPT"
+  default_prompt: "使用 $create-single-page-tech-report 将给定技术资料制作成一页式洞察汇报PPT。"

@@ -1,0 +1,15 @@
+schema_version: 1
+name: create-single-page-tech-report
+title: 单页技术洞察汇报
+description: 将技术论文、技术进展或事件材料转化为证据驱动的一页式中文 PowerPoint 汇报。
+entry: docs/index.md
+nav:
+  - title: 能力展示
+    path: docs/reference.md
+  - title: 使用方式
+    path: docs/usage.md
+  - title: 依赖说明
+    path: docs/dependencies.md
+  - title: 架构概览
+    path: docs/index.md
+status: bootstrap
