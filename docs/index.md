@@ -9,7 +9,8 @@
 | 来源理解 | 读取用户提供的材料与附带图表，区分明确事实、证据边界和必要推断；不补造数据。 |
 | 故事组织 | 技术论文采用“问题 → 方法 → 效果”；事件快报按材料事实组织，不套用未经定义的专属模板。 |
 | 页面设计 | 选择两栏、三栏、四栏或纵向卡片，使用红灰主色、微软雅黑与 Arial，并保留可编辑性。 |
-| 交付校验 | 自动检查 PPTX、单页和无动画时序；人工检查语义、证据、字体、溢出、遮挡和图表清晰度。 |
+| 兼容性规范化 | 导出后仅清除 slide 对象的活动 `noGrp` 锁，保留其他锁，使普通对象可在 PowerPoint 中组合。 |
+| 交付校验 | 自动检查 PPTX、单页、无动画时序和无活动 `noGrp`；人工检查语义、证据、字体、溢出、遮挡和图表清晰度。 |
 
 主要输入是来源材料、原始图片或表格以及目标读者；主要输出是 `.pptx`、渲染预览和校验摘要。临时产物统一写入 workspace 的 `.tmp/create-single-page-tech-report/<task-name>/`。
 
@@ -21,8 +22,9 @@
   -> 选择论文或事件组织方式
   -> 设计一页信息结构
   -> 创建可编辑 PPTX
+  -> 清除 slide 对象的活动 noGrp 锁
   -> 渲染预览并检查视觉问题
-  -> 运行单页/动画结构校验
+  -> 运行单页/动画/分组锁结构校验
   -> 人工复核内容与视觉规则
   -> 交付 PPTX、预览和校验摘要
 ```
@@ -34,7 +36,8 @@
 | `SKILL.md` | Agent 的完整制作规则、版式、字体、颜色和验收清单。 |
 | `agents/openai.yaml` | Codex skill 列表中的展示名称、简介和默认 prompt。 |
 | `verify_dependencies.py` | 检查命令行依赖并说明无法脚本化探测的 Agent 能力。 |
-| `scripts/validate_single_page_report.py` | 校验 PPTX 包结构、单页约束和动画时序节点。 |
+| `scripts/normalize_groupability.py` | 仅删除 slide 对象的活动 `noGrp` 锁，并原子写回 PPTX。 |
+| `scripts/validate_single_page_report.py` | 校验 PPTX 包结构、单页约束、动画时序节点和活动 `noGrp` 锁。 |
 | `docs/` | 面向文档站的能力、用法、依赖和架构说明。 |
 
 ## 多 Agent 职责边界

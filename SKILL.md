@@ -18,6 +18,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 ## 工作区边界
 
 - 使用当前环境提供的 PowerPoint / presentation 能力创建可编辑 `.pptx`，不要把最终交付降级为不可编辑图片。
+- 最终 PPTX 中的普通文本框、形状、连接线和图片必须允许用户在 PowerPoint 中组合。导出后运行 `scripts/normalize_groupability.py`，仅删除 slide 对象中值为 `1` 或 `true` 的 `noGrp`；保留 `noMove`、`noResize`、`noTextEdit` 和其他锁。
 - 仅在信息源缺少相关原图且自绘确有必要时使用 ImageGen；无法调用 ImageGen 时，改用可编辑的基础图形和图表，并向用户说明降级。
 - 将草稿、渲染预览、检查日志和阶段性文件写入 workspace 根目录下的 `.tmp/create-single-page-tech-report/<task-name>/`。
 - 仅当用户明确指定正式路径时，才将最终 `.pptx` 写入仓库正式目录；不要把中间产物写回 skill 目录。
@@ -140,15 +141,21 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 ## 交付与校验
 
 1. 将最终 `.pptx` 和渲染预览放在同一任务目录中。
-2. 从 workspace 根目录运行结构校验：
+2. 从 workspace 根目录清理导出器添加的 PowerPoint 分组锁：
+
+   ```powershell
+   python skills/create-single-page-tech-report/scripts/normalize_groupability.py `<pptx-path>`
+   ```
+
+3. 运行结构校验：
 
    ```powershell
    python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `<pptx-path>`
    ```
 
-3. 校验脚本必须确认文件是有效 PPTX、演示文稿严格为 1 页且不存在 PowerPoint 动画时序节点。失败时修改后重跑。
-4. 逐项人工复核标题语义、证据边界、字体、字号、颜色、图表、溢出、遮挡和洞察启示；这些内容不能仅凭 OOXML 结构可靠判断。
-5. 向用户交付 `.pptx`、预览图和校验结果摘要；不要交付仅有预览图而缺少可编辑源文件的结果。
+4. 校验脚本必须确认文件是有效 PPTX、演示文稿严格为 1 页、不存在 PowerPoint 动画时序节点且 slide 对象没有活动 `noGrp` 锁。失败时修改后重跑。
+5. 逐项人工复核标题语义、证据边界、字体、字号、颜色、图表、溢出、遮挡和洞察启示；这些内容不能仅凭 OOXML 结构可靠判断。
+6. 向用户交付 `.pptx`、预览图和校验结果摘要；不要交付仅有预览图而缺少可编辑源文件的结果。
 
 ## 最终检查
 
@@ -159,6 +166,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 字体是否仅使用微软雅黑和 Arial。
 - 图表是否以单色阶为主并突出关键数据。
 - 是否出现溢出、遮挡或动画；三者均不得出现。
+- 普通 slide 对象是否已清除活动 `noGrp` 锁，并可在 PowerPoint 中组合。
 - PPT 是否严格为 1 页。
 - 正文字号是否不大于13pt。
 

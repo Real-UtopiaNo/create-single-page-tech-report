@@ -21,8 +21,9 @@
 2. 区分论文与事件快报，确定一句话标题和完整事件概览。
 3. 选择两栏、三栏、四栏或纵向卡片布局。
 4. 优先使用来源原图；没有相关原图时再使用 ImageGen 或可编辑基础图形。
-5. 创建可编辑 `.pptx`，渲染预览并检查溢出、遮挡、对齐和可读性。
-6. 运行结构校验并完成人工清单复核。
+5. 创建可编辑 `.pptx`，运行分组锁清理脚本，仅删除 slide 对象的活动 `noGrp` 锁。
+6. 渲染预览并检查溢出、遮挡、对齐和可读性。
+7. 运行结构校验并完成人工清单复核。
 
 ## 命令入口
 
@@ -37,9 +38,14 @@ python skills/create-single-page-tech-report/verify_dependencies.py
 校验最终 PPTX：
 
 ```powershell
+python skills/create-single-page-tech-report/scripts/normalize_groupability.py `
+  .tmp/create-single-page-tech-report/<task-name>/report.pptx
+
 python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `
   .tmp/create-single-page-tech-report/<task-name>/report.pptx
 ```
+
+`normalize_groupability.py` 默认原子更新输入文件，只删除 `noGrp=1/true`，保留 `noMove`、`noResize`、`noTextEdit` 和其他锁。需要保留原文件时使用 `--output <new-file.pptx>`。
 
 ## 输出
 
@@ -55,6 +61,7 @@ python skills/create-single-page-tech-report/scripts/validate_single_page_report
 ## 完成标准
 
 - PPTX 严格为 1 页且无动画。
+- 普通 slide 对象不存在活动 `noGrp` 锁，可在 PowerPoint 中组合。
 - 标题直接总结事件，概览条可独立说明事实。
 - 技术论文按问题、方法、效果组织并给出量化证据边界。
 - 字体、字号、颜色和图表符合 `SKILL.md`；无溢出、遮挡或不自然换行。

@@ -9,6 +9,14 @@ from zipfile import BadZipFile, ZipFile
 
 
 PRESENTATION_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
+DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+GROUPING_LOCK_TAGS = {
+    f"{{{DRAWING_NS}}}spLocks",
+    f"{{{DRAWING_NS}}}picLocks",
+    f"{{{DRAWING_NS}}}cxnSpLocks",
+    f"{{{DRAWING_NS}}}grpSpLocks",
+}
+TRUE_VALUES = {"1", "true"}
 
 
 def fail(message: str) -> int:
@@ -61,6 +69,18 @@ def validate(path: Path) -> list[str]:
                     errors.append(
                         f"{slide_part} contains PowerPoint timing/animation nodes"
                     )
+                grouping_locks = [
+                    element
+                    for element in slide.iter()
+                    if element.tag in GROUPING_LOCK_TAGS
+                    and element.get("noGrp", "").lower() in TRUE_VALUES
+                ]
+                if grouping_locks:
+                    errors.append(
+                        f"{slide_part} contains {len(grouping_locks)} active noGrp "
+                        "lock(s) that disable PowerPoint grouping; run "
+                        "scripts/normalize_groupability.py before validation"
+                    )
     except BadZipFile:
         errors.append("file is not a valid ZIP-based PPTX package")
     except OSError as exc:
@@ -90,7 +110,10 @@ def main() -> int:
             print(f"FAIL {error}")
         return 1
 
-    print(f"PASS valid single-slide PPTX without animation timing nodes: {path}")
+    print(
+        "PASS valid single-slide PPTX without animation timing nodes or active "
+        f"noGrp locks: {path}"
+    )
     print(
         "INFO Manually review title semantics, evidence boundaries, fonts, body font size, "
         "colors, overflow, overlap, chart clarity, and the bottom insight."
