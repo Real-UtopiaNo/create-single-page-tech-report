@@ -17,6 +17,33 @@ GROUPING_LOCK_TAGS = {
     f"{{{DRAWING_NS}}}grpSpLocks",
 }
 TRUE_VALUES = {"1", "true"}
+STANDARD_WIDESCREEN_CX = 12_192_000
+STANDARD_WIDESCREEN_CY = 6_858_000
+EMU_PER_INCH = 914_400
+
+
+def standard_widescreen_size_issue(
+    presentation: ElementTree.Element,
+) -> str | None:
+    slide_size = presentation.find(f"{{{PRESENTATION_NS}}}sldSz")
+    if slide_size is None:
+        return "presentation.xml is missing p:sldSz"
+    try:
+        width = int(slide_size.get("cx", ""))
+        height = int(slide_size.get("cy", ""))
+    except ValueError:
+        return "presentation.xml has non-integer p:sldSz dimensions"
+    if (width, height) == (STANDARD_WIDESCREEN_CX, STANDARD_WIDESCREEN_CY):
+        return None
+    width_inches = width / EMU_PER_INCH
+    height_inches = height / EMU_PER_INCH
+    return (
+        "presentation.xml uses slide size "
+        f"{width} x {height} EMU ({width_inches:.3f} x "
+        f"{height_inches:.3f} in); expected PowerPoint standard widescreen "
+        f"{STANDARD_WIDESCREEN_CX} x {STANDARD_WIDESCREEN_CY} EMU "
+        "(13.333 x 7.500 in). A matching 16:9 aspect ratio alone is insufficient"
+    )
 
 
 def fail(message: str) -> int:
@@ -46,6 +73,8 @@ def validate(path: Path) -> list[str]:
                 return errors
 
             presentation = parse_xml(archive, "ppt/presentation.xml")
+            if size_issue := standard_widescreen_size_issue(presentation):
+                errors.append(size_issue)
             slide_ids = presentation.findall(f".//{{{PRESENTATION_NS}}}sldId")
             slide_parts = sorted(
                 name
@@ -111,11 +140,12 @@ def main() -> int:
         return 1
 
     print(
-        "PASS valid single-slide PPTX without animation timing nodes or active "
+        "PASS valid standard-widescreen single-slide PPTX without animation timing nodes or active "
         f"noGrp locks: {path}"
     )
     print(
-        "INFO Manually review title semantics, evidence boundaries, fonts, body font size, "
+        "INFO Standard widescreen physical size verified at 12192000 x 6858000 EMU. "
+        "Manually review title semantics, evidence boundaries, fonts, body font size, "
         "colors, overflow, overlap, chart clarity, and the bottom insight."
     )
     return 0

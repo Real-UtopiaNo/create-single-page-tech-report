@@ -10,6 +10,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 制作“近期技术热点洞察汇报”。
 - 始终遵循：内容逻辑 > 信息清晰 > 视觉装饰。
 - 将 PPT 页数严格控制为 1 页。
+- 页面必须使用 PowerPoint 标准宽屏物理尺寸：`13.333 × 7.5 in`（约 `33.867 × 19.05 cm`），对应 OOXML `p:sldSz` 的 `cx=12192000`、`cy=6858000`。不能只检查长宽比为 `16:9`；`1600 × 900 px` 等画布虽然比例相同，却会导出成错误的物理页面尺寸。使用 `@oai/artifact-tool` 新建页面时，应设置 `1280 × 720 px`（96 DPI）。
 - 禁止动画。
 - 慎用感叹号。
 - 不得为装饰牺牲可读性。
@@ -153,7 +154,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
    python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `<pptx-path>`
    ```
 
-4. 校验脚本必须确认文件是有效 PPTX、演示文稿严格为 1 页、不存在 PowerPoint 动画时序节点且 slide 对象没有活动 `noGrp` 锁。失败时修改后重跑。
+4. 校验脚本必须确认文件是有效 PPTX、页面物理尺寸严格为标准宽屏 `12192000 × 6858000 EMU`、演示文稿严格为 1 页、不存在 PowerPoint 动画时序节点且 slide 对象没有活动 `noGrp` 锁。失败时修改后重跑。
 5. 逐项人工复核标题语义、证据边界、字体、字号、颜色、图表、溢出、遮挡和洞察启示；这些内容不能仅凭 OOXML 结构可靠判断。
 6. 向用户交付 `.pptx`、预览图和校验结果摘要；不要交付仅有预览图而缺少可编辑源文件的结果。
 
@@ -167,6 +168,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 图表是否以单色阶为主并突出关键数据。
 - 是否出现溢出、遮挡或动画；三者均不得出现。
 - 普通 slide 对象是否已清除活动 `noGrp` 锁，并可在 PowerPoint 中组合。
+- 页面是否为标准宽屏物理尺寸 `13.333 × 7.5 in`（OOXML `12192000 × 6858000 EMU`），而不只是视觉比例接近 `16:9`。
 - PPT 是否严格为 1 页。
 - 正文字号是否不大于13pt。
 
