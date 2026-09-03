@@ -10,6 +10,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 制作“近期技术热点洞察汇报”。
 - 始终遵循：内容逻辑 > 信息清晰 > 视觉装饰。
 - 将 PPT 页数严格控制为 1 页。
+- 页面必须使用 PowerPoint 标准宽屏物理尺寸：`13.333 × 7.5 in`（约 `33.867 × 19.05 cm`），对应 OOXML `p:sldSz` 的 `cx=12192000`、`cy=6858000`。不能只检查长宽比为 `16:9`；`1600 × 900 px` 等画布虽然比例相同，却会导出成错误的物理页面尺寸。使用 `@oai/artifact-tool` 新建页面时，应设置 `1280 × 720 px`（96 DPI）。
 - 禁止动画。
 - 慎用感叹号。
 - 不得为装饰牺牲可读性。
@@ -18,6 +19,8 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 ## 工作区边界
 
 - 使用当前环境提供的 PowerPoint / presentation 能力创建可编辑 `.pptx`，不要把最终交付降级为不可编辑图片。
+- 最终 PPTX 中的普通文本框、形状、连接线和图片必须便于用户在 PowerPoint 中选择、移动、缩放和组合；文本必须可直接编辑并可对整个文本框统一改色。导出后运行 `scripts/normalize_groupability.py`，清除阻碍这些常规编辑动作的 `noGrp`、`noMove`、`noResize`、`noSelect`、`noTextEdit`，并清除与段落默认色完全相同的冗余 run 级颜色覆盖。
+- 统一的字体颜色、字号和粗细应写在文本框或段落默认样式；run 级样式仅用于中西文字体切换或真正的局部强调。不要因为拆分中文/ASCII run，就把相同颜色重复写入每个 run，否则 PowerPoint 的整框改色会被覆盖。
 - 仅在信息源缺少相关原图且自绘确有必要时使用 ImageGen；无法调用 ImageGen 时，改用可编辑的基础图形和图表，并向用户说明降级。
 - 将草稿、渲染预览、检查日志和阶段性文件写入 workspace 根目录下的 `.tmp/create-single-page-tech-report/<task-name>/`。
 - 仅当用户明确指定正式路径时，才将最终 `.pptx` 写入仓库正式目录；不要把中间产物写回 skill 目录。
@@ -96,6 +99,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 将“洞察启示”四个字置于正方形红色背景中，并使用白色字体。
 - 将洞察启示内容置于长方形灰色背景中，并使用黑色字体。
 - 正文通常使用 9–12 pt；为容纳必要内容可以小于 9 pt，但应慎用，并优先考虑精简措辞或调整布局。灰色标注、来源脚注和图片注释应小于相邻正文。
+- 所有最终显示为多行的文本（包括自动换行、手动换行和多个段落）必须显式设置为 1.5 倍行距，即段落行距为 `150%`；不要依赖主题、母版或软件默认值。
 - 出现不自然换行时，依次采用精简措辞、调整文本框宽度、重新分配栏宽和在 9–12 pt 范围内调整字号；不得直接保留孤立短词、单字行或破坏语义单元的断行。短标签、指标名称和板块标题原则上保持单行。
 
 ### 6. 应用颜色规则
@@ -140,15 +144,21 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 ## 交付与校验
 
 1. 将最终 `.pptx` 和渲染预览放在同一任务目录中。
-2. 从 workspace 根目录运行结构校验：
+2. 从 workspace 根目录规范化 PowerPoint 常规可编辑性：
+
+   ```powershell
+   python skills/create-single-page-tech-report/scripts/normalize_groupability.py `<pptx-path>`
+   ```
+
+3. 运行结构校验：
 
    ```powershell
    python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `<pptx-path>`
    ```
 
-3. 校验脚本必须确认文件是有效 PPTX、演示文稿严格为 1 页且不存在 PowerPoint 动画时序节点。失败时修改后重跑。
-4. 逐项人工复核标题语义、证据边界、字体、字号、颜色、图表、溢出、遮挡和洞察启示；这些内容不能仅凭 OOXML 结构可靠判断。
-5. 向用户交付 `.pptx`、预览图和校验结果摘要；不要交付仅有预览图而缺少可编辑源文件的结果。
+4. 校验脚本必须确认文件是有效 PPTX、页面物理尺寸严格为标准宽屏 `12192000 × 6858000 EMU`、演示文稿严格为 1 页、不存在 PowerPoint 动画时序节点、slide 对象没有阻碍常规编辑的锁、不存在与段落默认颜色重复的 run 级颜色覆盖，且显式换行或包含多个非空段落的文本框已在段落级显式设置 `150%` 行距。失败时修改后重跑。
+5. 逐项人工复核标题语义、证据边界、字体、字号、颜色、图表、溢出、遮挡和洞察启示；特别检查因文本框宽度产生的自动换行也使用 1.5 倍行距，因为仅凭 OOXML 结构无法可靠判断文本最终是否自动折行。这些内容不能仅凭结构校验替代。
+6. 向用户交付 `.pptx`、预览图和校验结果摘要；不要交付仅有预览图而缺少可编辑源文件的结果。
 
 ## 最终检查
 
@@ -159,6 +169,10 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 字体是否仅使用微软雅黑和 Arial。
 - 图表是否以单色阶为主并突出关键数据。
 - 是否出现溢出、遮挡或动画；三者均不得出现。
+- 普通 slide 对象是否可选择、移动、缩放和组合，文本是否可编辑，并能通过选中文本框一次性统一改色。
+- 统一样式是否只保留在文本框或段落默认层，run 级颜色是否仅用于真正的局部强调。
+- 所有多行文本是否均已显式设置为 1.5 倍行距（`150%`），包括自动换行、手动换行和多个段落。
+- 页面是否为标准宽屏物理尺寸 `13.333 × 7.5 in`（OOXML `12192000 × 6858000 EMU`），而不只是视觉比例接近 `16:9`。
 - PPT 是否严格为 1 页。
 - 正文字号是否不大于13pt。
 

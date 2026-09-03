@@ -21,8 +21,9 @@
 2. 区分论文与事件快报，确定一句话标题和完整事件概览。
 3. 选择两栏、三栏、四栏或纵向卡片布局。
 4. 优先使用来源原图；没有相关原图时再使用 ImageGen 或可编辑基础图形。
-5. 创建可编辑 `.pptx`，渲染预览并检查溢出、遮挡、对齐和可读性。
-6. 运行结构校验并完成人工清单复核。
+5. 创建可编辑 `.pptx`，运行可编辑性规范化脚本，清除常规编辑锁和冗余 run 级颜色覆盖。
+6. 渲染预览并检查溢出、遮挡、对齐和可读性，确认所有自动换行文本也使用 `150%` 行距。
+7. 运行结构校验并完成人工清单复核。
 
 ## 命令入口
 
@@ -37,9 +38,14 @@ python skills/create-single-page-tech-report/verify_dependencies.py
 校验最终 PPTX：
 
 ```powershell
+python skills/create-single-page-tech-report/scripts/normalize_groupability.py `
+  .tmp/create-single-page-tech-report/<task-name>/report.pptx
+
 python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `
   .tmp/create-single-page-tech-report/<task-name>/report.pptx
 ```
+
+`normalize_groupability.py` 默认原子更新输入文件：删除阻碍选择、移动、缩放、组合和文本编辑的活动锁，并删除与段落默认色完全重复的 run 级颜色覆盖；真正的混色强调和与常规编辑无关的锁会保留。需要保留原文件时使用 `--output <new-file.pptx>`。
 
 ## 输出
 
@@ -55,6 +61,9 @@ python skills/create-single-page-tech-report/scripts/validate_single_page_report
 ## 完成标准
 
 - PPTX 严格为 1 页且无动画。
+- 普通 slide 对象可选择、移动、缩放和组合；文本可直接编辑并可整框统一改色。
+- 同一文本框的统一颜色不重复写入每个 run；run 级颜色只用于真正的局部强调。
+- 所有多行文本均显式使用 `150%` 行距，包括自动换行、手动换行和多个段落。
 - 标题直接总结事件，概览条可独立说明事实。
 - 技术论文按问题、方法、效果组织并给出量化证据边界。
 - 字体、字号、颜色和图表符合 `SKILL.md`；无溢出、遮挡或不自然换行。
