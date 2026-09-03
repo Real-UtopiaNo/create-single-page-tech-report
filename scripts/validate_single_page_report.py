@@ -10,16 +10,22 @@ from zipfile import BadZipFile, ZipFile
 
 PRESENTATION_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
 DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
-GROUPING_LOCK_TAGS = {
+LOCK_ELEMENT_TAGS = {
     f"{{{DRAWING_NS}}}spLocks",
     f"{{{DRAWING_NS}}}picLocks",
     f"{{{DRAWING_NS}}}cxnSpLocks",
     f"{{{DRAWING_NS}}}grpSpLocks",
 }
+EDIT_BLOCKING_LOCKS = {"noGrp", "noMove", "noResize", "noSelect", "noTextEdit"}
 TRUE_VALUES = {"1", "true"}
+LINE_SPACING_PERCENT = 150_000
 STANDARD_WIDESCREEN_CX = 12_192_000
 STANDARD_WIDESCREEN_CY = 6_858_000
 EMU_PER_INCH = 914_400
+TEXT_BODY_TAGS = {
+    f"{{{PRESENTATION_NS}}}txBody",
+    f"{{{DRAWING_NS}}}txBody",
+}
 
 
 def standard_widescreen_size_issue(
@@ -44,6 +50,95 @@ def standard_widescreen_size_issue(
         f"{STANDARD_WIDESCREEN_CX} x {STANDARD_WIDESCREEN_CY} EMU "
         "(13.333 x 7.500 in). A matching 16:9 aspect ratio alone is insufficient"
     )
+
+
+def solid_rgb(parent: ElementTree.Element | None) -> str | None:
+    if parent is None:
+        return None
+    color = parent.find(
+        f"{{{DRAWING_NS}}}solidFill/{{{DRAWING_NS}}}srgbClr"
+    )
+    return color.get("val", "").upper() if color is not None else None
+
+
+def redundant_run_color_count(slide: ElementTree.Element) -> int:
+    count = 0
+    for paragraph in slide.iter(f"{{{DRAWING_NS}}}p"):
+        default_props = paragraph.find(
+            f"{{{DRAWING_NS}}}pPr/{{{DRAWING_NS}}}defRPr"
+        )
+        default_color = solid_rgb(default_props)
+        if not default_color:
+            continue
+        runs = [
+            run
+            for run in paragraph.findall(f"{{{DRAWING_NS}}}r")
+            if run.findtext(f"{{{DRAWING_NS}}}t") is not None
+        ]
+        if not runs:
+            continue
+        count += sum(
+            1
+            for run in runs
+            if solid_rgb(run.find(f"{{{DRAWING_NS}}}rPr")) == default_color
+        )
+    return count
+
+
+def paragraph_has_text(paragraph: ElementTree.Element) -> bool:
+    return any(
+        (text.text or "").strip()
+        for text in paragraph.iter(f"{{{DRAWING_NS}}}t")
+    )
+
+
+def paragraph_has_explicit_break(paragraph: ElementTree.Element) -> bool:
+    if paragraph.find(f".//{{{DRAWING_NS}}}br") is not None:
+        return True
+    return any(
+        "\n" in (text.text or "") or "\r" in (text.text or "")
+        for text in paragraph.iter(f"{{{DRAWING_NS}}}t")
+    )
+
+
+def line_spacing_percent(paragraph: ElementTree.Element) -> int | None:
+    spacing = paragraph.find(
+        f"{{{DRAWING_NS}}}pPr/{{{DRAWING_NS}}}lnSpc/"
+        f"{{{DRAWING_NS}}}spcPct"
+    )
+    if spacing is None:
+        return None
+    try:
+        return int(spacing.get("val", ""))
+    except ValueError:
+        return None
+
+
+def multiline_line_spacing_issues(slide: ElementTree.Element) -> list[int | None]:
+    issues: list[int | None] = []
+    for text_body in (
+        element for element in slide.iter() if element.tag in TEXT_BODY_TAGS
+    ):
+        paragraphs = [
+            paragraph
+            for paragraph in text_body.findall(f"{{{DRAWING_NS}}}p")
+            if paragraph_has_text(paragraph)
+        ]
+        if len(paragraphs) > 1:
+            multiline_paragraphs = paragraphs
+        else:
+            multiline_paragraphs = [
+                paragraph
+                for paragraph in paragraphs
+                if paragraph_has_explicit_break(paragraph)
+            ]
+        issues.extend(
+            spacing
+            for paragraph in multiline_paragraphs
+            if (spacing := line_spacing_percent(paragraph))
+            != LINE_SPACING_PERCENT
+        )
+    return issues
 
 
 def fail(message: str) -> int:
@@ -98,17 +193,41 @@ def validate(path: Path) -> list[str]:
                     errors.append(
                         f"{slide_part} contains PowerPoint timing/animation nodes"
                     )
-                grouping_locks = [
-                    element
+                blocking_locks = [
+                    (element, attribute)
                     for element in slide.iter()
-                    if element.tag in GROUPING_LOCK_TAGS
-                    and element.get("noGrp", "").lower() in TRUE_VALUES
+                    if element.tag in LOCK_ELEMENT_TAGS
+                    for attribute in EDIT_BLOCKING_LOCKS
+                    if element.get(attribute, "").lower() in TRUE_VALUES
                 ]
-                if grouping_locks:
+                if blocking_locks:
+                    attributes = ", ".join(
+                        sorted({attribute for _, attribute in blocking_locks})
+                    )
                     errors.append(
-                        f"{slide_part} contains {len(grouping_locks)} active noGrp "
-                        "lock(s) that disable PowerPoint grouping; run "
+                        f"{slide_part} contains {len(blocking_locks)} active "
+                        f"edit-blocking lock(s) ({attributes}); run "
                         "scripts/normalize_groupability.py before validation"
+                    )
+                redundant_colors = redundant_run_color_count(slide)
+                if redundant_colors:
+                    errors.append(
+                        f"{slide_part} contains {redundant_colors} redundant run-level "
+                        "color override(s) matching the paragraph default; these make "
+                        "whole-textbox recoloring inconvenient. Run "
+                        "scripts/normalize_groupability.py before validation"
+                    )
+                spacing_issues = multiline_line_spacing_issues(slide)
+                if spacing_issues:
+                    actual_values = ", ".join(
+                        "missing" if value is None else str(value)
+                        for value in spacing_issues
+                    )
+                    errors.append(
+                        f"{slide_part} contains {len(spacing_issues)} multiline "
+                        "paragraph(s) without explicit 150% line spacing "
+                        f"(expected spcPct={LINE_SPACING_PERCENT}; found "
+                        f"{actual_values})"
                     )
     except BadZipFile:
         errors.append("file is not a valid ZIP-based PPTX package")
@@ -140,13 +259,15 @@ def main() -> int:
         return 1
 
     print(
-        "PASS valid standard-widescreen single-slide PPTX without animation timing nodes or active "
-        f"noGrp locks: {path}"
+        "PASS valid standard-widescreen single-slide PPTX without animation timing nodes, active "
+        "edit-blocking locks, redundant run-level colors, or detectable multiline "
+        f"text lacking explicit 150% line spacing: {path}"
     )
     print(
         "INFO Standard widescreen physical size verified at 12192000 x 6858000 EMU. "
         "Manually review title semantics, evidence boundaries, fonts, body font size, "
-        "colors, overflow, overlap, chart clarity, and the bottom insight."
+        "colors, overflow, overlap, chart clarity, the bottom insight, and 150% line "
+        "spacing for text that wraps visually without explicit XML line breaks."
     )
     return 0
 

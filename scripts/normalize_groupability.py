@@ -19,6 +19,7 @@ LOCK_ELEMENT_TAGS = {
     f"{{{DRAWING_NS}}}cxnSpLocks",
     f"{{{DRAWING_NS}}}grpSpLocks",
 }
+EDIT_BLOCKING_LOCKS = {"noGrp", "noMove", "noResize", "noSelect", "noTextEdit"}
 TRUE_VALUES = {"1", "true"}
 SLIDE_PART = re.compile(r"^ppt/slides/slide\d+\.xml$")
 RESERVED_PREFIX = re.compile(r"^ns\d+$")
@@ -32,29 +33,73 @@ def register_namespaces(xml_bytes: bytes) -> None:
             ElementTree.register_namespace(prefix, uri)
 
 
-def normalize_slide(xml_bytes: bytes) -> tuple[bytes, int]:
+def _solid_rgb(parent: ElementTree.Element | None) -> str | None:
+    if parent is None:
+        return None
+    color = parent.find(
+        f"{{{DRAWING_NS}}}solidFill/{{{DRAWING_NS}}}srgbClr"
+    )
+    return color.get("val", "").upper() if color is not None else None
+
+
+def _remove_redundant_run_colors(slide: ElementTree.Element) -> int:
+    removed = 0
+    paragraph_tag = f"{{{DRAWING_NS}}}p"
+    run_tag = f"{{{DRAWING_NS}}}r"
+    run_props_tag = f"{{{DRAWING_NS}}}rPr"
+    default_props_path = (
+        f"{{{DRAWING_NS}}}pPr/{{{DRAWING_NS}}}defRPr"
+    )
+    text_tag = f"{{{DRAWING_NS}}}t"
+    solid_fill_tag = f"{{{DRAWING_NS}}}solidFill"
+
+    for paragraph in slide.iter(paragraph_tag):
+        default_color = _solid_rgb(paragraph.find(default_props_path))
+        if not default_color:
+            continue
+        runs = [
+            run
+            for run in paragraph.findall(run_tag)
+            if run.findtext(text_tag) is not None
+        ]
+        if not runs:
+            continue
+        for run in runs:
+            props = run.find(run_props_tag)
+            if _solid_rgb(props) != default_color:
+                continue
+            solid_fill = props.find(solid_fill_tag) if props is not None else None
+            if solid_fill is not None:
+                props.remove(solid_fill)
+                removed += 1
+    return removed
+
+
+def normalize_slide(xml_bytes: bytes) -> tuple[bytes, int, int]:
     register_namespaces(xml_bytes)
     slide = ElementTree.fromstring(xml_bytes)
-    removed = 0
+    removed_locks = 0
 
     for element in slide.iter():
         if element.tag not in LOCK_ELEMENT_TAGS:
             continue
-        if element.get("noGrp", "").lower() not in TRUE_VALUES:
-            continue
-        del element.attrib["noGrp"]
-        removed += 1
+        for attribute in EDIT_BLOCKING_LOCKS:
+            if element.get(attribute, "").lower() in TRUE_VALUES:
+                del element.attrib[attribute]
+                removed_locks += 1
 
-    if not removed:
-        return xml_bytes, 0
+    removed_colors = _remove_redundant_run_colors(slide)
+    if not removed_locks and not removed_colors:
+        return xml_bytes, 0, 0
 
     return (
         ElementTree.tostring(slide, encoding="utf-8", xml_declaration=True),
-        removed,
+        removed_locks,
+        removed_colors,
     )
 
 
-def normalize_pptx(source: Path, output: Path) -> tuple[int, int]:
+def normalize_pptx(source: Path, output: Path) -> tuple[int, int, int]:
     output.parent.mkdir(parents=True, exist_ok=True)
     same_target = source.resolve() == output.resolve()
     descriptor, temp_name = tempfile.mkstemp(
@@ -62,7 +107,8 @@ def normalize_pptx(source: Path, output: Path) -> tuple[int, int]:
     )
     os.close(descriptor)
     temp_path = Path(temp_name)
-    removed = 0
+    removed_locks = 0
+    removed_colors = 0
     changed_slides = 0
 
     try:
@@ -71,13 +117,14 @@ def normalize_pptx(source: Path, output: Path) -> tuple[int, int]:
             for entry in source_archive.infolist():
                 data = source_archive.read(entry)
                 if SLIDE_PART.match(entry.filename):
-                    data, entry_removed = normalize_slide(data)
-                    if entry_removed:
-                        removed += entry_removed
+                    data, entry_locks, entry_colors = normalize_slide(data)
+                    if entry_locks or entry_colors:
+                        removed_locks += entry_locks
+                        removed_colors += entry_colors
                         changed_slides += 1
                 output_archive.writestr(entry, data)
 
-        if same_target and not removed:
+        if same_target and not removed_locks and not removed_colors:
             temp_path.unlink()
         else:
             os.replace(temp_path, output)
@@ -85,7 +132,7 @@ def normalize_pptx(source: Path, output: Path) -> tuple[int, int]:
         temp_path.unlink(missing_ok=True)
         raise
 
-    return removed, changed_slides
+    return removed_locks, removed_colors, changed_slides
 
 
 def fail(message: str) -> int:
@@ -96,8 +143,8 @@ def fail(message: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Remove active noGrp locks from slide objects while preserving all other "
-            "PowerPoint locks and package parts."
+            "Remove locks that block routine editing and redundant run-level colors "
+            "that override a matching paragraph default."
         )
     )
     parser.add_argument("pptx", type=Path, help="Input PowerPoint .pptx file")
@@ -118,20 +165,22 @@ def main() -> int:
         return fail(f"file does not exist: {source}")
 
     try:
-        removed, changed_slides = normalize_pptx(source, output)
+        removed_locks, removed_colors, changed_slides = normalize_pptx(source, output)
     except BadZipFile:
         return fail(f"file is not a valid ZIP-based PPTX package: {source}")
     except (OSError, ElementTree.ParseError, ValueError) as exc:
         return fail(f"could not normalize PPTX: {exc}")
 
-    if removed:
-        print(
-            f"PASS removed {removed} active noGrp locks from "
-            f"{changed_slides} slide XML part(s): {output}"
-        )
-    else:
-        print(f"PASS no active noGrp locks found: {output}")
-    print("INFO Preserved noMove, noResize, noTextEdit, and all other lock attributes.")
+    print(
+        "PASS normalized convenient editability: "
+        f"removed {removed_locks} edit-blocking lock attribute(s) and "
+        f"{removed_colors} redundant run-level color override(s) from "
+        f"{changed_slides} slide XML part(s): {output}"
+    )
+    print(
+        "INFO Preserved mixed-color emphasis and locks unrelated to routine "
+        "selection, movement, resizing, grouping, and text editing."
+    )
     return 0
 
 
