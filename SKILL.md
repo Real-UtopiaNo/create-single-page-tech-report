@@ -22,7 +22,7 @@ description: Create or revise a one-slide Chinese PowerPoint briefing for recent
 - 最终 PPTX 中的普通文本框、形状、连接线和图片必须便于用户在 PowerPoint 中选择、移动、缩放和组合；文本必须可直接编辑并可对整个文本框统一改色。导出后运行 `scripts/normalize_groupability.py`，清除阻碍这些常规编辑动作的 `noGrp`、`noMove`、`noResize`、`noSelect`、`noTextEdit`，并清除与段落默认色完全相同的冗余 run 级颜色覆盖。
 - 统一的字体颜色、字号和粗细应写在文本框或段落默认样式；run 级样式仅用于中西文字体切换或真正的局部强调。不要因为拆分中文/ASCII run，就把相同颜色重复写入每个 run，否则 PowerPoint 的整框改色会被覆盖。
 - 仅在信息源缺少相关原图且自绘确有必要时使用 ImageGen；无法调用 ImageGen 时，改用可编辑的基础图形和图表，并向用户说明降级。
-- 将草稿、渲染预览、检查日志和阶段性文件写入 workspace 根目录下的 `.tmp/create-single-page-tech-report/<task-name>/`。
+- 将草稿、渲染预览、检查日志和阶段性文件写入 workspace 根目录下的 `.tmp/runs/<run-id>/create-single-page-tech-report/`。
 - 仅当用户明确指定正式路径时，才将最终 `.pptx` 写入仓库正式目录；不要把中间产物写回 skill 目录。
 - 不得猜测信息源未给出的事实、数据、时间或对比结论。需要推断时，明确标记为推断。
 

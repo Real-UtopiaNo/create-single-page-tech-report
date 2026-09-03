@@ -32,7 +32,7 @@
 
 ## 示例来源与公开状态
 
-初始版本来自用户提供的 `create-single-page-tech-report` 规则集。当前仓库不捆绑主题性示例 PPTX，以免把特定论文或未授权材料作为公开样例。首次使用时应将任务产物写入 `.tmp/`，只有经用户确认可公开的案例才适合补充到本页。
+初始版本来自用户提供的 `create-single-page-tech-report` 规则集。当前仓库不捆绑主题性示例 PPTX，以免把特定论文或未授权材料作为公开样例。首次使用时应将任务产物写入本次 `.tmp/runs/<run-id>/create-single-page-tech-report/`，只有经用户确认可公开的案例才适合补充到本页。
 
 仓库中的 [SKILL.md](https://github.com/Real-UtopiaNo/create-single-page-tech-report/blob/main/SKILL.md) 是规则来源，[自动校验脚本](https://github.com/Real-UtopiaNo/create-single-page-tech-report/blob/main/scripts/validate_single_page_report.py) 是机器检查入口。文档状态为 `bootstrap`，不宣称已有公开案例通过视觉验收。
 

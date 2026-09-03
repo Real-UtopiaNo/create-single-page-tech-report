@@ -13,7 +13,7 @@
 | 来源材料 | 论文 PDF、结构化解析结果、网页正文、Markdown、技术结果或新闻材料。 |
 | 附带资产 | 原始图片、图表、表格、图注和来源定位。 |
 | 目标读者 | 研究者、技术负责人或技术路径决策者。 |
-| 输出路径 | 未明确指定时，使用 `.tmp/create-single-page-tech-report/<task-name>/`。 |
+| 输出路径 | 未明确指定时，使用 `.tmp/runs/<run-id>/create-single-page-tech-report/`。 |
 
 ## 推荐流程
 
@@ -39,10 +39,10 @@ python skills/create-single-page-tech-report/verify_dependencies.py
 
 ```powershell
 python skills/create-single-page-tech-report/scripts/normalize_groupability.py `
-  .tmp/create-single-page-tech-report/<task-name>/report.pptx
+  .tmp/runs/<run-id>/create-single-page-tech-report/report.pptx
 
 python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `
-  .tmp/create-single-page-tech-report/<task-name>/report.pptx
+  .tmp/runs/<run-id>/create-single-page-tech-report/report.pptx
 ```
 
 `normalize_groupability.py` 默认原子更新输入文件：删除阻碍选择、移动、缩放、组合和文本编辑的活动锁，并删除与段落默认色完全重复的 run 级颜色覆盖；真正的混色强调和与常规编辑无关的锁会保留。需要保留原文件时使用 `--output <new-file.pptx>`。
@@ -50,7 +50,7 @@ python skills/create-single-page-tech-report/scripts/validate_single_page_report
 ## 输出
 
 ```text
-.tmp/create-single-page-tech-report/<task-name>/
+.tmp/runs/<run-id>/create-single-page-tech-report/
 |-- report.pptx
 |-- preview.png
 `-- validation.txt
