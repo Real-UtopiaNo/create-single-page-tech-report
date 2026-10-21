@@ -30,17 +30,20 @@ Agent Runtime 中的 presentation 和 ImageGen 工具不是稳定的命令行依
 
 `scripts/normalize_groupability.py` 使用 Python 标准库原子重写 PPTX，删除 slide 对象锁元素中值为 `1` 或 `true` 的 `noGrp`、`noMove`、`noResize`、`noSelect`、`noTextEdit`，并删除与段落默认色完全重复的 run 级颜色。它保留真正的混色强调、与常规编辑无关的锁，以及 master/layout 中的锁。
 
+颜色清理与校验只识别段落 `pPr/defRPr` 和 run `rPr` 中显式的 `solidFill/srgbClr` RGB 色值；不解析主题色、跨层样式继承或视觉上等价的其他颜色表示。这些情况需人工检查整框改色体验。
+
 `scripts/validate_single_page_report.py` 使用 Python 标准库读取 OOXML，检查：
 
 - 文件是可读取的 PPTX ZIP 包。
 - 必需的 PPTX 部件存在。
+- `ppt/presentation.xml` 中的 `p:sldSz` 严格为 `cx=12192000`、`cy=6858000`，即标准宽屏物理尺寸 `13.333 × 7.5 in`；同为 `16:9` 的其他尺寸也会失败。
 - 演示文稿声明且实际包含恰好 1 个 slide XML。
 - slide 中不存在 PowerPoint `timing` 动画节点。
 - slide 对象中不存在会阻碍常规选择、移动、缩放、组合或文本编辑的活动锁。
 - 文本中不存在与段落默认色重复、会覆盖整框改色的 run 级颜色。
 - 显式换行或包含多个非空段落的文本框已在段落级显式设置 `150%` 行距。
 
-它不会判断标题语义、事实准确性、字体选择、正文是否小于等于 13 pt、图表是否清晰、页面是否溢出或遮挡，也无法仅凭 OOXML 判断文本是否因文本框宽度自动换行。这些项目必须结合渲染预览人工复核；自动换行后的多行文本还需人工确认使用 `150%` 行距。
+它不会执行完整 OOXML schema 或 PowerPoint 兼容性验证，也不会实际打开 PPTX 或验证用户能否方便地编辑每个对象。它不判断标题语义、事实准确性、字体选择、正文是否小于等于 13 pt、图表是否清晰、页面是否溢出或遮挡，也无法仅凭 OOXML 判断文本是否因文本框宽度自动换行。这些项目必须结合 PPTX 和渲染预览人工复核；自动换行后的多行文本还需人工确认使用 `150%` 行距。
 
 ## 修复方向
 
@@ -48,4 +51,5 @@ Agent Runtime 中的 presentation 和 ImageGen 工具不是稳定的命令行依
 - 缺少 presentation 能力：改用提供 PowerPoint 创建和渲染工具的 Agent Runtime。
 - 缺少 ImageGen：使用原始来源图片或可编辑基础图形，并在交付说明中记录降级。
 - 校验脚本报告页数或动画失败：删除额外页面或动画后重新导出 `.pptx` 并重跑校验。
+- 校验脚本报告页面尺寸失败：在生成工具中设为标准宽屏物理尺寸后重新导出；不能只把预览图缩成 `16:9`。使用 `@oai/artifact-tool` 时按 `1280 × 720 px`（96 DPI）创建画布。
 - 校验脚本报告编辑锁或冗余 run 颜色失败：先运行 `normalize_groupability.py`，再重新校验。

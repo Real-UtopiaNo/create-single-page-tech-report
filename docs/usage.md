@@ -21,7 +21,7 @@
 2. 区分论文与事件快报，确定一句话标题和完整事件概览。
 3. 选择两栏、三栏、四栏或纵向卡片布局。
 4. 优先使用来源原图；没有相关原图时再使用 ImageGen 或可编辑基础图形。
-5. 创建可编辑 `.pptx`，运行可编辑性规范化脚本，清除常规编辑锁和冗余 run 级颜色覆盖。
+5. 创建可编辑 `.pptx`，使用 PowerPoint 标准宽屏物理尺寸 `13.333 × 7.5 in`（`12192000 × 6858000 EMU`），再运行可编辑性规范化脚本，清除常规编辑锁和冗余 run 级颜色覆盖。若用 `@oai/artifact-tool`，新建画布采用 `1280 × 720 px`（96 DPI）；不要仅凭 `16:9` 比例选用更大的物理页面。
 6. 渲染预览并检查溢出、遮挡、对齐和可读性，确认所有自动换行文本也使用 `150%` 行距。
 7. 运行结构校验并完成人工清单复核。
 
@@ -37,15 +37,16 @@ python skills/create-single-page-tech-report/verify_dependencies.py
 
 校验最终 PPTX：
 
-```powershell
-python skills/create-single-page-tech-report/scripts/normalize_groupability.py `
-  .tmp/runs/<run-id>/create-single-page-tech-report/report.pptx
+把下方 `<run-id>` 替换为本次已有工作根目录的名称，或将 `$reportPath` 改为真实 PPTX 路径。路径放在引号中，以兼容空格及 PowerShell 的特殊字符。
 
-python skills/create-single-page-tech-report/scripts/validate_single_page_report.py `
-  .tmp/runs/<run-id>/create-single-page-tech-report/report.pptx
+```powershell
+$reportPath = '.tmp/runs/<run-id>/create-single-page-tech-report/report.pptx'
+python skills/create-single-page-tech-report/scripts/normalize_groupability.py $reportPath
+
+python skills/create-single-page-tech-report/scripts/validate_single_page_report.py $reportPath
 ```
 
-`normalize_groupability.py` 默认原子更新输入文件：删除阻碍选择、移动、缩放、组合和文本编辑的活动锁，并删除与段落默认色完全重复的 run 级颜色覆盖；真正的混色强调和与常规编辑无关的锁会保留。需要保留原文件时使用 `--output <new-file.pptx>`。
+`normalize_groupability.py` 默认原子更新输入文件：删除阻碍选择、移动、缩放、组合和文本编辑的活动锁，并删除与段落默认显式 RGB 色值完全重复的 run 级颜色覆盖；真正的混色强调和与常规编辑无关的锁会保留。它不解析主题色或跨层样式继承；详见[依赖说明](./dependencies.md#产物校验覆盖)。需要保留原文件时使用 `--output <new-file.pptx>`。
 
 ## 输出
 
@@ -60,7 +61,7 @@ python skills/create-single-page-tech-report/scripts/validate_single_page_report
 
 ## 完成标准
 
-- PPTX 严格为 1 页且无动画。
+- PPTX 严格为 1 页且无动画；物理尺寸严格为 `12192000 × 6858000 EMU`，不是只看长宽比。
 - 普通 slide 对象可选择、移动、缩放和组合；文本可直接编辑并可整框统一改色。
 - 同一文本框的统一颜色不重复写入每个 run；run 级颜色只用于真正的局部强调。
 - 所有多行文本均显式使用 `150%` 行距，包括自动换行、手动换行和多个段落。
